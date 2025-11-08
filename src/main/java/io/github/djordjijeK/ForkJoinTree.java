@@ -24,23 +24,27 @@ public class ForkJoinTree<T extends Comparable<T>> implements Iterable<T> {
     }
 
 
-    public void insert(T element) {
+    public ForkJoinTree<T> insert(T element) {
         TreeNode<T> oldRoot;
         TreeNode<T> newRoot;
         do {
             oldRoot = root.get();
             newRoot = insert(oldRoot, element);
         } while (!root.compareAndSet(oldRoot, newRoot));
+
+        return new ForkJoinTree<>(newRoot);
     }
 
 
-    public void delete(T element) {
+    public ForkJoinTree<T> delete(T element) {
         TreeNode<T> oldRoot;
         TreeNode<T> newRoot;
         do {
             oldRoot = root.get();
             newRoot = delete(oldRoot, element);
         } while (!root.compareAndSet(oldRoot, newRoot));
+
+        return new ForkJoinTree<>(newRoot);
     }
 
 
