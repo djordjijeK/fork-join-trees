@@ -1,24 +1,10 @@
 # ForkJoinTree
 
-A **lock-free, persistent, self-balancing binary search tree** implementation that leverages Java's ForkJoinPool for
-highly efficient parallel set operations.
-
 [![Java](https://img.shields.io/badge/Java-17%2B-orange.svg)](https://openjdk.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Core Concepts](#core-concepts)
-    - [Persistence and Immutability](#persistence-and-immutability)
-    - [Concurrency via MVCC](#concurrency-via-mvcc-multi-version-concurrency-control)
-    - [Parallelism via Fork/Join Framework](#parallelism-via-forkjoin-framework)
-- [Building and Testing](#building-and-testing)
-
----
-
-## Overview
+A **lock-free, persistent, self-balancing binary search tree** implementation that leverages Java's ForkJoinPool for
+highly efficient parallel set operations.
 
 `ForkJoinTree<T>` is a generic, immutable, and concurrency-optimized ordered set. It is designed to combine the
 efficiency of balanced trees with the scalability of functional data structures.
@@ -28,11 +14,13 @@ It has the following defining properties:
 - **Balanced Binary Search Tree:** The structure maintains balance through AVL-style rotations, guaranteeing logarithmic
   time complexity O(log n) for insertion, deletion, and lookup operations, regardless of update history.
 
+
 - **Persistent with Structural Sharing:** Query operations - such as unions, intersections, range queries, and splits -
   return new `ForkJoinTree` instances that share unmodified structure with the original. Mutation operations (`insert`
   and `delete`) use atomic compare-and-swap to safely update the tree in-place. Both approaches leverage *structural
   sharing*, ensuring that only modified paths are recreated while unchanged subtrees are reused. This minimizes memory
   overhead and enables efficient versioning through query operations.
+
 
 - **Concurrent and Parallel Execution:** The design is optimized for concurrent access. Reads are lock-free, implemented
   through a Multi-Version Concurrency Control (MVCC)-inspired mechanism that allows multiple threads to observe
@@ -46,125 +34,107 @@ fine-grained parallelism, making it suitable for both concurrent algorithms and 
 
 ## Features
 
-`ForkJoinTree<T>` provides a comprehensive set of operations designed for efficiency, immutability, and parallel
-scalability.
-
-**Basic Operations**
-
-- `insert(T element):` Adds the specified element to the tree using lock-free atomic operations. Multiple concurrent
-  insertions are safely coordinated through compare-and-swap (CAS) loops.
-
-- `delete(T element):` Removes the specified element from the tree using lock-free atomic operations. Concurrent
-  deletions are handled safely without blocking.
-
-- `contains(T element):` Determines whether an element exists within the tree in O(log n) time with no allocations.
-
-- `size():` Returns the total number of elements currently present in O(1) time.
-
-**Range Queries**
-
-- `lowerThan(T element):` Produces a new tree containing all elements less than or equal to the specified element.
-- `greaterThan(T element):` Produces a new tree containing all elements greater than or equal to the specified element.
-- `range(T low, T high):` Returns a new tree containing all elements within the inclusive range `[low, high]`.
-
-**Set Operations**
-
-All set operations are internally parallelized through the Java Fork/Join framework, allowing efficient use of multicore
-processors.
-
-- `union(ForkJoinTree<T> other):` Returns a tree representing the union of both input trees.
-- `intersection(ForkJoinTree<T> other):` Returns a tree containing only elements present in both trees.
-- `difference(ForkJoinTree<T> other):` Returns a tree containing elements from the first tree that are not in the
-  second.
-
-**Splitting**
-
-- `split(T element):` Divides the tree into two disjoint trees - one containing all elements smaller than the given key,
-  and another containing all elements greater. Both resulting trees share unmodified substructure with the original.
-
-**Iteration**
-
-- `iterator():` Provides an ascending-order iterator over the elements.
-- `iteratorDescending():` Provides a descending-order iterator.
-
-All operations preserve immutability through structural sharing, ensuring logarithmic-time updates, efficient memory
-use, and full thread safety without synchronization.
+- 🔒 **Lock-Free Mutations** - Non-blocking insertions and deletions
+- 📸 **Immutable Snapshots** - Create consistent point-in-time views without copying the entire tree
+- ⚡ **Parallel Operations** - Automatic multicore utilization for set operations
+- ⚖️ **Self-Balancing Tree** - Maintains optimal structure for guaranteed performance
+- 🔍 **Efficient Range Queries** - Fast lookups and filtering operations
+- 🔄 **Bidirectional Iteration** - Traverse elements in ascending or descending order
+- 🧵 **Thread-Safe** - Safe concurrent access without explicit synchronization
+- 💾 **Memory Efficient** - Structural sharing minimizes memory overhead
 
 ---
 
 ## Core Concepts
 
-Understanding the following concepts is key to leveraging the full potential of `ForkJoinTree`.
+Understanding these three pillars will help you leverage `ForkJoinTree` effectively.
 
 ### Persistence and Immutability
 
-The `ForkJoinTree` achieves persistence through *structural sharing*, a technique that enables efficient versioning and
+`ForkJoinTree` achieves **persistence through structural sharing** - a technique that enables efficient versioning and
 snapshot isolation.
 
-When query operations like `union()`, `range()`, or `greaterThan()` are called, they return new `ForkJoinTree`
-instances. These new trees share unchanged subtrees with the original, and only the nodes that differ are newly
-allocated. This is known as *path copying* - only the nodes along the path to modified elements are recreated.
+When you perform operations like `union()`, `range()`, or `greaterThan()`, a new tree is returned that shares unchanged
+subtrees with the original. Only nodes along modified paths are recreated (**path copying**).
 
-The primary benefit is the ability to create immutable snapshots. Any reference you hold to a `ForkJoinTree` represents
-a consistent, immutable view of the data at that point in time. You can pass these snapshots to other threads or use
-them for long-running computations, confident they will never change - even if the original tree is later modified
-through `insert()` or `delete()` operations.
+**Key Benefits:**
+
+- Create immutable snapshots that never change
+- Share snapshots safely across threads
+- No defensive copying required
+- Minimal memory overhead through structural reuse
 
 ```java
 ForkJoinTree<Integer> v1 = new ForkJoinTree<>();
-v1.
-
-insert(10);
-v1.
-
-insert(20);
-v1.
-
-insert(30);
-// v1 now contains: {10, 20, 30}
-
-// Create a new tree containing only elements greater than 15
-ForkJoinTree<Integer> v2 = v1.greaterThan(15);
-// v2 contains: {20, 30}
-// v1 is unchanged: {10, 20, 30}
-
-// Create another new tree from a range query on v1
-ForkJoinTree<Integer> v3 = v1.range(10, 20);
-// v3 contains: {10, 20}
-// v1 and v2 remain unaffected
-
-// At this point, you have three distinct, immutable snapshots:
+v1.insert(10);
+v1.insert(20);
+v1.insert(30);
 // v1: {10, 20, 30}
+
+ForkJoinTree<Integer> v2 = v1.greaterThan(15);
 // v2: {20, 30}
+// v1 unchanged: {10, 20, 30}
+
+ForkJoinTree<Integer> v3 = v1.range(10, 20);
 // v3: {10, 20}
+// v1 and v2 remain unaffected
 ```
 
-### Concurrency via MVCC (Multi-Version Concurrency Control)
+### Concurrency via MVCC
 
-The snapshot-based design of `ForkJoinTree` enables a concurrency model similar to MVCC, a technique widely used in
-high-performance databases like PostgreSQL and Oracle.
+The snapshot-based design enables **Multi-Version Concurrency Control** - the same technique used by high-performance
+databases like PostgreSQL and Oracle.
 
-The core principle is simple: **readers don't block writers, and writers don't block readers**.
+**Core Principle:** Readers don't block writers, and writers don't block readers.
 
-When you capture a reference to a tree (or derive a new tree via a query operation), you hold an immutable snapshot.
-Other threads can continue to modify the original tree through `insert()` and `delete()` without affecting your
-snapshot. Similarly, reads never require locks - threads simply access the current atomic root reference.
+- Readers access immutable snapshots without any locks
+- Writers use atomic compare-and-swap to update the root reference
+- Failed CAS operations retry with the new snapshot
+- No traditional locking or synchronization required
 
-This MVCC-inspired approach eliminates traditional locking for read operations, dramatically reducing contention and
-improving throughput in applications with many concurrent readers.
+This MVCC-inspired approach eliminates read contention and dramatically improves throughput in read-heavy workloads.
 
 ### Parallelism via Fork/Join Framework
 
-While concurrency is about managing access from multiple threads, parallelism is about actively distributing work across
-multiple CPU cores to accelerate computation.
+`ForkJoinTree` automatically parallelizes computationally intensive operations across available CPU cores.
 
-`ForkJoinTree` leverages Java's Fork/Join framework to parallelize its most computationally intensive operations -
-specifically `union()`, `intersection()`, and `difference()`. These set operations recursively subdivide work into
-smaller tasks that execute concurrently on available processor cores, achieving near-linear speedup on multi-core
-systems for large datasets.
+**Parallelized Operations:**
 
-This parallelism is transparent to the caller and automatically scales with the number of available cores, making bulk
-operations significantly faster without requiring any special handling in application code.
+- `union()` - Merge two trees using divide-and-conquer
+- `intersection()` - Find common elements in parallel
+- `difference()` - Compute set difference across cores
+- `range()` - Process left and right subtrees concurrently
+
+The Fork/Join framework provides:
+
+- Transparent work distribution
+- Work-stealing for load balancing
+- Near-linear speedup on multicore systems
+- No manual thread management required
+
+Performance scales automatically with available processor cores without any changes to application code.
+
+---
+
+## API Overview
+
+| Operation                             | Description                                                                      |
+|---------------------------------------|----------------------------------------------------------------------------------|
+| `insert(T element)`                   | Add an element to the tree                                                       |
+| `delete(T element)`                   | Remove an element from the tree                                                  |
+| `contains(T element)`                 | Check if an element exists in the tree                                           |
+| `size()`                              | Get the total number of elements                                                 |
+| `union(ForkJoinTree<T> other)`        | Merge two trees into one containing all elements                                 |
+| `intersection(ForkJoinTree<T> other)` | Create a tree containing only common elements                                    |
+| `difference(ForkJoinTree<T> other)`   | Create a tree with elements in first tree but not in second                      |
+| `range(T low, T high)`                | Create a tree containing elements within the specified range                     |
+| `lowerThan(T element)`                | Create a tree containing elements less than or equal to the specified element    |
+| `greaterThan(T element)`              | Create a tree containing elements greater than or equal to the specified element |
+| `split(T element)`                    | Partition the tree into two disjoint trees around the specified element          |
+| `iterator()`                          | Get an iterator for ascending-order traversal                                    |
+| `iteratorDescending()`                | Get an iterator for descending-order traversal                                   |
+
+---
 
 ## Building and Testing
 
@@ -176,12 +146,16 @@ operations significantly faster without requiring any special handling in applic
 ### Build Commands
 
 ```bash
+# Clone the repository
+git clone https://github.com/djordjijeK/fork-join-trees.git
+cd fork-join-trees
+
 # Compile the project
 ./gradlew build
 
-# Run unit tests
+# Run unit tests (functional correctness)
 ./gradlew test
 
-# Run JCStress concurrency tests
+# Run JCStress concurrency stress tests
 ./gradlew jcstress
 ```
